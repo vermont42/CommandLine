@@ -11,7 +11,7 @@ import SwiftSyntax
 import TSCBasic
 
 try withTemporaryFile(dir: nil, deleteOnClose: true) { temp in
-  temp.fileHandle.write("5.3_8 0xDEAD.BEEFp2 0b10101 0o3434 4_2 0xDEADBEEF".data(using: .utf8)!)
+  temp.fileHandle.write("1 5.3_8 0xDEAD.BEEFp2 0b10101 0o3434 4_2 0xDEAD_BEEFp-1 0xDEFACE.C0FFEEp+1".data(using: .utf8)!)
   let url = URL(fileURLWithPath: temp.path.pathString)
   let sourceFile = try SyntaxParser.parse(url)
   _ = VisitNumericLiterals().visit(sourceFile)
@@ -44,23 +44,10 @@ public extension FloatLiteralExprSyntax {
 public extension IntegerLiteralExprSyntax {
   var integerValue: Int {
     let text = self.digits.text
-
-    let type: IntegerType
-    if text.count >= 2 {
-      type = IntegerType(prefix: String(text.prefix(2)))
-    } else {
-      type = .decimal
-    }
-
+    let type = IntegerType(text: text)
     let textWithoutPrefix: String
-    switch type {
-    case .binary, .octal, .hexadecimal:
-      let prefixLength = 2
-      let index = text.index(text.startIndex, offsetBy: prefixLength)
-      textWithoutPrefix = String(text.suffix(from: index))
-    case .decimal:
-      textWithoutPrefix = text
-    }
+    let digitsStartIndex = text.index(text.startIndex, offsetBy: type.prefixLength())
+    textWithoutPrefix = String(text.suffix(from: digitsStartIndex))
 
     let textWithoutPrefixOrUnderscores = textWithoutPrefix.filter {
       $0 != "_"
@@ -69,14 +56,16 @@ public extension IntegerLiteralExprSyntax {
     return Int(textWithoutPrefixOrUnderscores, radix: type.radix())!
   }
 
-  enum IntegerType {
+  private enum IntegerType {
     case binary
     case octal
     case decimal
     case hexadecimal
 
-    init(prefix: String) {
-      switch prefix {
+    private static let nonDecimalPrefixLength = 2
+
+    init(text: String) {
+      switch text.prefix(IntegerType.nonDecimalPrefixLength) {
       case "0b":
         self = .binary
       case "0o":
@@ -98,6 +87,15 @@ public extension IntegerLiteralExprSyntax {
         return 10
       case .hexadecimal:
         return 16
+      }
+    }
+
+    func prefixLength() -> Int {
+      switch self {
+      case .binary, .octal, .hexadecimal:
+        return IntegerType.nonDecimalPrefixLength
+      case .decimal:
+        return 0
       }
     }
   }
