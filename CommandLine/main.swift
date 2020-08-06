@@ -62,6 +62,7 @@ public extension IntegerLiteralExprSyntax {
     case decimal
     case hexadecimal
 
+    private static let decimalPrefixLength = 0
     private static let nonDecimalPrefixLength = 2
 
     init(text: String) {
@@ -95,7 +96,7 @@ public extension IntegerLiteralExprSyntax {
       case .binary, .octal, .hexadecimal:
         return IntegerType.nonDecimalPrefixLength
       case .decimal:
-        return 0
+        return IntegerType.decimalPrefixLength
       }
     }
   }
